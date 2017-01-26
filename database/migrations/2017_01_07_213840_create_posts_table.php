@@ -15,16 +15,18 @@ class CreatePostsTable extends Migration
     {
         Schema::create('posts', function (Blueprint $table) {
             $table->increments('id');
+            $table->integer('wp_id')->unsigned();
             $table->integer('user_id')->unsigned()->index();
             $table->string('title');
             $table->longText('content');
-            $table->text('excerpt');
+            $table->text('excerpt')->nullable();
             $table->enum('status', ['public', 'private', 'draft', 'trash'])->default('public');
             $table->string('slug', 200);
             $table->boolean('allow_comments')->default(true);
-            $table->timestampsTz();
+            $table->text('thumbnail')->nullable();
+            $table->timestamps();
 
-            $table->foreign('user_id')->references('id')->on('users');
+            //$table->foreign('user_id')->references('id')->on('users');
         });
     }
 

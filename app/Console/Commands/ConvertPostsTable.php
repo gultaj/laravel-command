@@ -37,9 +37,9 @@ class ConvertPostsTable extends Command
      */
     public function handle()
     {
-        $this->info('Begin');
+        $this->info('Start convert post table');
 
-        \DB::table('posts')->truncate();
+        \DB::table('posts')->delete();
 
         $sql = "ID AS wp_id,
             post_author AS user_id,
@@ -47,7 +47,7 @@ class ConvertPostsTable extends Command
             post_content AS content,
             post_title AS title,
             post_excerpt AS excerpt,
-            post_name AS wp_slug,
+            post_name AS slug,
             post_modified AS updated_at, 
             CASE WHEN comment_status = 'open' THEN 1 ELSE 0 END allow_comments, 
             CASE WHEN post_status = 'publish' OR post_status = 'pending' THEN 'public' WHEN post_status = 'auto-draft' THEN 'draft' ELSE post_status END status,
@@ -62,11 +62,10 @@ class ConvertPostsTable extends Command
             ->where('post_type', 'post')->limit(100)
             ->chunk(100, function($posts) {
                 \DB::table('posts')->insert($posts->map(function($x) {
-                    //$this->info(serialize((array)$x));
                     return (array)$x;
                 })->toArray());
         });
             
-        $this->info('End');
+        $this->info('End convert post table');
     }
 }
