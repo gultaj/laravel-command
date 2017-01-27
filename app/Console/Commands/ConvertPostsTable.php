@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use \DB;
 use Illuminate\Console\Command;
 
 class ConvertPostsTable extends Command
@@ -39,7 +40,9 @@ class ConvertPostsTable extends Command
     {
         $this->info('Start convert post table');
 
-        \DB::table('posts')->delete();
+        DB::statement('SET FOREIGN_KEY_CHECKS=0');
+        DB::table('posts')->truncate();
+        DB::statement('SET FOREIGN_KEY_CHECKS=1');
 
         $sql = "ID AS wp_id,
             post_author AS user_id,

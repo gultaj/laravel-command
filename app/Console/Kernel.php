@@ -13,8 +13,10 @@ class Kernel extends ConsoleKernel
      * @var array
      */
     protected $commands = [
+        Commands\ConvertAllTables::class,
         Commands\ConvertPostsTable::class,
         Commands\ConvertCategoriesTable::class,
+        Commands\ConvertTagsTable::class,
     ];
 
     /**
