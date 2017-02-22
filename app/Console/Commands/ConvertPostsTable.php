@@ -31,15 +31,31 @@ class ConvertPostsTable extends Command
         parent::__construct();
     }
 
-    /**
-     * Execute the console command.
-     *
-     * @return mixed
-     */
     public function handle()
     {
         $this->info('Start convert post table');
+        $this->convertPosts();
+        $this->info('End convert post table');
 
+        $this->info('Begin convertation tags table');
+        $this->convertTags();
+        $this->info('Finished convertation tags table');
+
+        $this->info('Begin convertation tag_post table');
+        $this->convertPostTags();
+        $this->info('Finished convertation tag_post table');
+
+        $this->info('Begin convertation categories table');
+        $this->convertCategories();
+        $this->info('Finished convertation categories table');
+
+        $this->info('Begin convertation post_categories table');
+        $this->convertPostCategories();
+        $this->info('Finished convertation post_categories table');
+    }
+
+    public function convertPosts()
+    {
         DB::statement('SET FOREIGN_KEY_CHECKS=0');
         DB::table('posts')->truncate();
         DB::statement('SET FOREIGN_KEY_CHECKS=1');
@@ -56,19 +72,118 @@ class ConvertPostsTable extends Command
             CASE WHEN post_status = 'publish' OR post_status = 'pending' THEN 'public' WHEN post_status = 'auto-draft' THEN 'draft' ELSE post_status END status,
             wp_postmeta.meta_value as thumbnail";
 
-        \DB::table('wp_posts')
-            ->select(\DB::raw($sql))
+        DB::table('wp_posts')
+            ->select(DB::raw($sql))
             ->leftJoin('wp_postmeta', function($join) {
                 $join->on('wp_postmeta.post_id', '=', 'wp_posts.ID')
                     ->where('wp_postmeta.meta_key', '=', 'thumbnail');
             })
-            ->where('post_type', 'post')->limit(100)
+            ->where('post_type', 'post')
             ->chunk(100, function($posts) {
-                \DB::table('posts')->insert($posts->map(function($x) {
+                DB::table('posts')->insert($posts->map(function($x) {
                     return (array)$x;
                 })->toArray());
         });
-            
-        $this->info('End convert post table');
+
+//         UPDATE posts AS p
+// INNER JOIN (
+// 	SELECT posts.id AS id, IFNULL(users.id,1) AS user_id, user_id AS wp_user_id
+// 	FROM posts
+// 	LEFT JOIN users ON users.wp_id = posts.user_id
+// ) AS t USING (id) 
+// SET p.user_id = t.user_id
+    }
+
+    private function convertTags()
+    {
+        $table_name = 'tags';
+        
+        $sql = "term_taxonomy_id as wp_id,
+	            name,
+	            slug";
+
+        DB::statement('SET FOREIGN_KEY_CHECKS=0');
+        DB::table($table_name)->truncate();
+        DB::statement('SET FOREIGN_KEY_CHECKS=1');
+        
+        DB::table('wp_term_taxonomy')
+            ->select(DB::raw($sql))
+            ->leftJoin('wp_terms', 'wp_terms.term_id', '=', 'wp_term_taxonomy.term_id')
+            ->where('wp_term_taxonomy.taxonomy', 'post_tag')
+            ->chunk(100, function($tags) use ($table_name) {
+                DB::table($table_name)->insert($tags->map(function($tag) {
+                    return (array)$tag;
+                })->toArray());
+            });
+    }
+
+    private function convertPostTags()
+    {
+        $table_name = 'tag_post';
+
+        $sql = "posts.id as post_id,
+	        tags.id as tag_id";
+        
+        DB::statement('SET FOREIGN_KEY_CHECKS=0');
+        DB::table($table_name)->truncate();
+        DB::statement('SET FOREIGN_KEY_CHECKS=1');
+
+        DB::table('wp_term_relationships')
+            ->select(DB::raw($sql))
+            ->join('posts', 'posts.wp_id', '=', 'wp_term_relationships.object_id')
+            ->join('tags', 'tags.wp_id', '=', 'wp_term_relationships.term_taxonomy_id')
+            ->chunk(100, function($post_tags) use ($table_name) {
+                DB::table($table_name)->insert($post_tags->map(function($pt) {
+                    return (array)$pt;
+                })->toArray());
+            });
+    }
+
+    
+    private function convertCategories()
+    {
+        $table_name = 'categories';
+        
+        $sql = "term_taxonomy_id as wp_id,
+	            name,
+	            slug,
+	            description,
+                parent";
+
+        DB::statement('SET FOREIGN_KEY_CHECKS=0');
+        DB::table($table_name)->truncate();
+        DB::statement('SET FOREIGN_KEY_CHECKS=1');
+        
+        DB::table('wp_term_taxonomy')
+            ->select(DB::raw($sql))
+            ->leftJoin('wp_terms', 'wp_terms.term_id', '=', 'wp_term_taxonomy.term_id')
+            ->where('wp_term_taxonomy.taxonomy', 'category')
+            ->chunk(100, function($categories) use ($table_name) {
+                DB::table($table_name)->insert($categories->map(function($category) {
+                    return (array)$category;
+                })->toArray());
+            });
+    }
+
+    private function convertPostCategories()
+    {
+        $table_name = 'category_post';
+
+        $sql = "posts.id as post_id,
+	        categories.id as category_id";
+        
+        DB::statement('SET FOREIGN_KEY_CHECKS=0');
+        DB::table($table_name)->truncate();
+        DB::statement('SET FOREIGN_KEY_CHECKS=1');
+
+        DB::table('wp_term_relationships')
+            ->select(DB::raw($sql))
+            ->join('posts', 'posts.wp_id', '=', 'wp_term_relationships.object_id')
+            ->join('categories', 'categories.wp_id', '=', 'wp_term_relationships.term_taxonomy_id')
+            ->chunk(100, function($post_categories) use ($table_name) {
+                DB::table($table_name)->insert($post_categories->map(function($pc) {
+                    return (array)$pc;
+                })->toArray());
+            });
     }
 }

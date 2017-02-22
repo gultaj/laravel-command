@@ -15,8 +15,7 @@ class Kernel extends ConsoleKernel
     protected $commands = [
         Commands\ConvertAllTables::class,
         Commands\ConvertPostsTable::class,
-        Commands\ConvertCategoriesTable::class,
-        Commands\ConvertTagsTable::class,
+        Commands\ConvertUsersTable::class,
     ];
 
     /**
