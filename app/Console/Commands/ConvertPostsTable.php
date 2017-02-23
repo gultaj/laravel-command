@@ -60,8 +60,8 @@ class ConvertPostsTable extends Command
         DB::table('posts')->truncate();
         DB::statement('SET FOREIGN_KEY_CHECKS=1');
 
-        $sql = "ID AS wp_id,
-            post_author AS user_id,
+        $sql = "wp_posts.ID AS wp_id,
+            IFNULL(users.id, 1) AS user_id,
             post_date AS created_at,
             post_content AS content,
             post_title AS title,
@@ -78,20 +78,13 @@ class ConvertPostsTable extends Command
                 $join->on('wp_postmeta.post_id', '=', 'wp_posts.ID')
                     ->where('wp_postmeta.meta_key', '=', 'thumbnail');
             })
+            ->leftJoin('users', 'wp_posts.post_author', '=',  'users.wp_id')
             ->where('post_type', 'post')
             ->chunk(100, function($posts) {
-                DB::table('posts')->insert($posts->map(function($x) {
-                    return (array)$x;
+                DB::table('posts')->insert($posts->map(function($post) {
+                    return (array)$post;
                 })->toArray());
         });
-
-//         UPDATE posts AS p
-// INNER JOIN (
-// 	SELECT posts.id AS id, IFNULL(users.id,1) AS user_id, user_id AS wp_user_id
-// 	FROM posts
-// 	LEFT JOIN users ON users.wp_id = posts.user_id
-// ) AS t USING (id) 
-// SET p.user_id = t.user_id
     }
 
     private function convertTags()

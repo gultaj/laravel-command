@@ -58,9 +58,9 @@ class ConvertUsersTable extends Command
         DB::table('wp_users')
             ->select(DB::raw($sql))
             ->chunk(100, function($users) {
-                DB::table('users')->insert($users->map(function($x) {
-                    $x->password = bcrypt($x->name . '_' . \Carbon\Carbon::parse($x->created_at));
-                    return (array)$x;
+                DB::table('users')->insert($users->map(function($user) {
+                    $user->password = bcrypt($user->name . '_' . \Carbon\Carbon::parse($user->created_at));
+                    return (array)$user;
                 })->toArray());
         });
     }
