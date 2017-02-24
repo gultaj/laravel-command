@@ -16,6 +16,7 @@ class Kernel extends ConsoleKernel
         Commands\ConvertAllTables::class,
         Commands\ConvertPostsTable::class,
         Commands\ConvertUsersTable::class,
+        Commands\ConvertEventsTable::class,
     ];
 
     /**
