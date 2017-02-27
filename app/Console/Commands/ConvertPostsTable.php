@@ -85,6 +85,13 @@ class ConvertPostsTable extends Command
                     return (array)$post;
                 })->toArray());
         });
+
+        $ids = DB::table('posts')->lists('wp_id');
+        DB::table('wp_postmeta')->distinct()->whereIn('post_id', $ids);
+        DB::table('posts')->get()->each(function($post) {
+            DB::
+            $post
+        })
     }
 
     private function convertTags()
