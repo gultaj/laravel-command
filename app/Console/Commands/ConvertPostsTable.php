@@ -69,15 +69,10 @@ class ConvertPostsTable extends Command
             post_name AS slug,
             post_modified AS updated_at, 
             CASE WHEN comment_status = 'open' THEN 1 ELSE 0 END allow_comments, 
-            CASE WHEN post_status = 'publish' OR post_status = 'pending' THEN 'public' WHEN post_status = 'auto-draft' THEN 'draft' ELSE post_status END status,
-            wp_postmeta.meta_value as thumbnail";
+            CASE WHEN post_status = 'publish' OR post_status = 'pending' THEN 'public' WHEN post_status = 'auto-draft' THEN 'draft' ELSE post_status END status";
 
         DB::table('wp_posts')
             ->select(DB::raw($sql))
-            ->leftJoin('wp_postmeta', function($join) {
-                $join->on('wp_postmeta.post_id', '=', 'wp_posts.ID')
-                    ->where('wp_postmeta.meta_key', '=', 'thumbnail');
-            })
             ->leftJoin('users', 'wp_posts.post_author', '=',  'users.wp_id')
             ->where('post_type', 'post')
             ->chunk(100, function($posts) {
@@ -86,12 +81,27 @@ class ConvertPostsTable extends Command
                 })->toArray());
         });
 
+<<<<<<< HEAD
         $ids = DB::table('posts')->lists('wp_id');
         DB::table('wp_postmeta')->distinct()->whereIn('post_id', $ids);
         DB::table('posts')->get()->each(function($post) {
             DB::
             $post
         })
+=======
+    //     SELECT posts.id, temp.old_thumb, pm.meta_value as 'thumb'
+	// FROM posts
+	// INNER JOIN (
+	// 	SELECT post_id, 
+	// 		MAX(CASE WHEN meta_key = '_thumbnail_id' THEN meta_value END) AS 'thumb_id', 
+	// 		MAX(CASE WHEN meta_key = 'thumbnail' THEN meta_value END) AS 'old_thumb'
+	// 	FROM wp_postmeta
+	// 	WHERE (meta_key = '_thumbnail_id' OR meta_key = 'thumbnail')
+	// 	GROUP BY post_id
+	// ) temp ON temp.post_id = posts.wp_id
+	// LEFT JOIN wp_postmeta pm ON pm.post_id = temp.thumb_id AND pm.meta_key = '_wp_attached_file'
+        
+>>>>>>> 0e68e1ab7a4ecd580681d0cda9f6436c95a7e5e3
     }
 
     private function convertTags()
