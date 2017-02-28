@@ -81,14 +81,34 @@ class ConvertPostsTable extends Command
                 })->toArray());
         });
 
-<<<<<<< HEAD
-        $ids = DB::table('posts')->lists('wp_id');
-        DB::table('wp_postmeta')->distinct()->whereIn('post_id', $ids);
-        DB::table('posts')->get()->each(function($post) {
-            DB::
-            $post
-        })
-=======
+        $sql = "SELECT posts.id, temp.old_thumb, pm.meta_value as 'thumb'
+	            FROM posts
+	            INNER JOIN (
+		            SELECT post_id, 
+			            MAX(CASE WHEN meta_key = '_thumbnail_id' THEN meta_value END) AS 'thumb_id', 
+			            MAX(CASE WHEN meta_key = 'thumbnail' THEN meta_value END) AS 'old_thumb'
+                    FROM wp_postmeta
+                    WHERE (meta_key = '_thumbnail_id' OR meta_key = 'thumbnail')
+                    GROUP BY post_id
+                ) temp ON temp.post_id = posts.wp_id
+                LEFT JOIN wp_postmeta pm ON pm.post_id = temp.thumb_id AND pm.meta_key = '_wp_attached_file'";
+
+        // $posts = DB::table('posts')
+        //     ->select(DB::raw('posts.id, temp.old_thumb, wp_postmeta.meta_value as thumb'))
+        //     ->join($joinSql, function($join) {
+        //         $join->on('temp.post_id', '=', 'posts.wp_id');
+        //     })->leftJoin('wp_postmeta', function($join) {
+        //         $join->on('wp_postmeta.post_id', '=', 'temp.thumb_id')
+        //             ->where('wp_postmeta.meta_key', '=', '_wp_attached_file');
+        //     })->get();
+
+        $posts = DB::select(DB::raw($sql));
+        
+        foreach ($posts as $post) {
+            DB::table('posts')->where('id', $post->id)->update([
+                'thumbnail' => $post->thumb ?: str_replace('http://www.lida.info/wp-content/uploads/', '', $post->old_thumb)
+            ]);
+        }
     //     SELECT posts.id, temp.old_thumb, pm.meta_value as 'thumb'
 	// FROM posts
 	// INNER JOIN (
@@ -101,7 +121,6 @@ class ConvertPostsTable extends Command
 	// ) temp ON temp.post_id = posts.wp_id
 	// LEFT JOIN wp_postmeta pm ON pm.post_id = temp.thumb_id AND pm.meta_key = '_wp_attached_file'
         
->>>>>>> 0e68e1ab7a4ecd580681d0cda9f6436c95a7e5e3
     }
 
     private function convertTags()
