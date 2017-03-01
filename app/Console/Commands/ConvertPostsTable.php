@@ -60,66 +60,42 @@ class ConvertPostsTable extends Command
         DB::table('posts')->truncate();
         DB::statement('SET FOREIGN_KEY_CHECKS=1');
 
-        $sql = "wp_posts.ID AS wp_id,
-            IFNULL(users.id, 1) AS user_id,
-            post_date AS created_at,
-            post_content AS content,
-            post_title AS title,
-            post_excerpt AS excerpt,
-            post_name AS slug,
-            post_modified AS updated_at, 
-            CASE WHEN comment_status = 'open' THEN 1 ELSE 0 END allow_comments, 
-            CASE WHEN post_status = 'publish' OR post_status = 'pending' THEN 'public' WHEN post_status = 'auto-draft' THEN 'draft' ELSE post_status END status";
-
-        DB::table('wp_posts')
-            ->select(DB::raw($sql))
-            ->leftJoin('users', 'wp_posts.post_author', '=',  'users.wp_id')
-            ->where('post_type', 'post')
-            ->chunk(100, function($posts) {
-                DB::table('posts')->insert($posts->map(function($post) {
-                    return (array)$post;
-                })->toArray());
-        });
-
-        $sql = "SELECT posts.id, temp.old_thumb, pm.meta_value as 'thumb'
-	            FROM posts
-	            INNER JOIN (
-		            SELECT post_id, 
-			            MAX(CASE WHEN meta_key = '_thumbnail_id' THEN meta_value END) AS 'thumb_id', 
-			            MAX(CASE WHEN meta_key = 'thumbnail' THEN meta_value END) AS 'old_thumb'
-                    FROM wp_postmeta
-                    WHERE (meta_key = '_thumbnail_id' OR meta_key = 'thumbnail')
-                    GROUP BY post_id
-                ) temp ON temp.post_id = posts.wp_id
-                LEFT JOIN wp_postmeta pm ON pm.post_id = temp.thumb_id AND pm.meta_key = '_wp_attached_file'";
-
-        // $posts = DB::table('posts')
-        //     ->select(DB::raw('posts.id, temp.old_thumb, wp_postmeta.meta_value as thumb'))
-        //     ->join($joinSql, function($join) {
-        //         $join->on('temp.post_id', '=', 'posts.wp_id');
-        //     })->leftJoin('wp_postmeta', function($join) {
-        //         $join->on('wp_postmeta.post_id', '=', 'temp.thumb_id')
-        //             ->where('wp_postmeta.meta_key', '=', '_wp_attached_file');
-        //     })->get();
+        $sql = "SELECT wp_posts.ID AS wp_id,
+                IFNULL(users.id, 1) AS user_id,
+                post_date AS created_at,
+                post_content AS content,
+                post_title AS title,
+                post_excerpt AS excerpt,
+                post_name AS slug,
+                post_modified AS updated_at, 
+                CASE WHEN comment_status = 'open' THEN 1 ELSE 0 END allow_comments, 
+                CASE post_status
+                    WHEN 'publish' THEN 'public'
+                    WHEN 'pending' THEN 'public' 
+                    WHEN 'auto-draft' THEN 'draft'
+                    ELSE post_status 
+                END status,
+                CASE WHEN pm.meta_value THEN pm.meta_value
+                    ELSE REPLACE(temp.old_thumb, 'http://www.lida.info/wp-content/uploads/', '')
+                END thumbnail
+            FROM wp_posts
+            LEFT JOIN users ON wp_posts.post_author = users.wp_id
+            INNER JOIN (
+                SELECT post_id, 
+                    MAX(CASE WHEN meta_key = '_thumbnail_id' THEN meta_value END) AS 'thumb_id', 
+                    MAX(CASE WHEN meta_key = 'thumbnail' THEN meta_value END) AS 'old_thumb'
+                FROM wp_postmeta
+                WHERE (meta_key = '_thumbnail_id' OR meta_key = 'thumbnail')
+                GROUP BY post_id
+            ) temp ON temp.post_id = wp_posts.ID
+            LEFT JOIN wp_postmeta pm ON pm.post_id = temp.thumb_id AND pm.meta_key = '_wp_attached_file'
+            WHERE post_type = 'post'";
 
         $posts = DB::select(DB::raw($sql));
-        
+
         foreach ($posts as $post) {
-            DB::table('posts')->where('id', $post->id)->update([
-                'thumbnail' => $post->thumb ?: str_replace('http://www.lida.info/wp-content/uploads/', '', $post->old_thumb)
-            ]);
+            DB::table('posts')->insert((array)$post);
         }
-    //     SELECT posts.id, temp.old_thumb, pm.meta_value as 'thumb'
-	// FROM posts
-	// INNER JOIN (
-	// 	SELECT post_id, 
-	// 		MAX(CASE WHEN meta_key = '_thumbnail_id' THEN meta_value END) AS 'thumb_id', 
-	// 		MAX(CASE WHEN meta_key = 'thumbnail' THEN meta_value END) AS 'old_thumb'
-	// 	FROM wp_postmeta
-	// 	WHERE (meta_key = '_thumbnail_id' OR meta_key = 'thumbnail')
-	// 	GROUP BY post_id
-	// ) temp ON temp.post_id = posts.wp_id
-	// LEFT JOIN wp_postmeta pm ON pm.post_id = temp.thumb_id AND pm.meta_key = '_wp_attached_file'
         
     }
 
