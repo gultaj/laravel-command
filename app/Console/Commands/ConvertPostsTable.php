@@ -60,7 +60,9 @@ class ConvertPostsTable extends Command
         DB::table('posts')->truncate();
         DB::statement('SET FOREIGN_KEY_CHECKS=1');
 
-        $sql = "SELECT wp_posts.ID AS wp_id,
+        $sql = "INSERT 
+                INTO posts (wp_id, user_id, created_at, content, title, excerpt, slug, updated_at, allow_comments, `status`, thumbnail)
+            SELECT wp_posts.ID AS wp_id,
                 IFNULL(users.id, 1) AS user_id,
                 post_date AS created_at,
                 post_content AS content,
@@ -81,9 +83,9 @@ class ConvertPostsTable extends Command
             FROM wp_posts
             LEFT JOIN users ON wp_posts.post_author = users.wp_id
             INNER JOIN (
-                SELECT post_id, 
-                    MAX(CASE WHEN meta_key = '_thumbnail_id' THEN meta_value END) AS 'thumb_id', 
-                    MAX(CASE WHEN meta_key = 'thumbnail' THEN meta_value END) AS 'old_thumb'
+            SELECT post_id, 
+                MAX(CASE WHEN meta_key = '_thumbnail_id' THEN meta_value END) AS 'thumb_id', 
+                MAX(CASE WHEN meta_key = 'thumbnail' THEN meta_value END) AS 'old_thumb'
                 FROM wp_postmeta
                 WHERE (meta_key = '_thumbnail_id' OR meta_key = 'thumbnail')
                 GROUP BY post_id
@@ -91,104 +93,70 @@ class ConvertPostsTable extends Command
             LEFT JOIN wp_postmeta pm ON pm.post_id = temp.thumb_id AND pm.meta_key = '_wp_attached_file'
             WHERE post_type = 'post'";
 
-        $posts = DB::select(DB::raw($sql));
-
-        foreach ($posts as $post) {
-            DB::table('posts')->insert((array)$post);
-        }
+        DB::insert(DB::raw($sql));
         
     }
 
     private function convertTags()
     {
-        $table_name = 'tags';
-        
-        $sql = "term_taxonomy_id as wp_id,
-	            name,
-	            slug";
-
         DB::statement('SET FOREIGN_KEY_CHECKS=0');
-        DB::table($table_name)->truncate();
+        DB::table('tags')->truncate();
         DB::statement('SET FOREIGN_KEY_CHECKS=1');
-        
-        DB::table('wp_term_taxonomy')
-            ->select(DB::raw($sql))
-            ->leftJoin('wp_terms', 'wp_terms.term_id', '=', 'wp_term_taxonomy.term_id')
-            ->where('wp_term_taxonomy.taxonomy', 'post_tag')
-            ->chunk(100, function($tags) use ($table_name) {
-                DB::table($table_name)->insert($tags->map(function($tag) {
-                    return (array)$tag;
-                })->toArray());
-            });
+
+        $sql = "INSERT INTO tags (wp_id, name, slug)
+            SELECT term_taxonomy_id as wp_id,
+                name,
+                slug
+            FROM wp_term_taxonomy
+            LEFT JOIN wp_terms ON wp_terms.term_id = wp_term_taxonomy.term_id
+            WHERE wp_term_taxonomy.taxonomy = 'post_tag'";
+
+        DB::insert(DB::raw($sql));
     }
 
     private function convertPostTags()
     {
-        $table_name = 'tag_post';
-
-        $sql = "posts.id as post_id,
-	        tags.id as tag_id";
-        
         DB::statement('SET FOREIGN_KEY_CHECKS=0');
-        DB::table($table_name)->truncate();
+        DB::table('tag_post')->truncate();
         DB::statement('SET FOREIGN_KEY_CHECKS=1');
 
-        DB::table('wp_term_relationships')
-            ->select(DB::raw($sql))
-            ->join('posts', 'posts.wp_id', '=', 'wp_term_relationships.object_id')
-            ->join('tags', 'tags.wp_id', '=', 'wp_term_relationships.term_taxonomy_id')
-            ->chunk(100, function($post_tags) use ($table_name) {
-                DB::table($table_name)->insert($post_tags->map(function($pt) {
-                    return (array)$pt;
-                })->toArray());
-            });
+        $sql = "INSERT INTO tag_post (post_id, tag_id)
+            SELECT posts.id as post_id, tags.id as tag_id
+            FROM wp_term_relationships
+            JOIN posts ON posts.wp_id = wp_term_relationships.object_id
+            JOIN tags ON tags.wp_id = wp_term_relationships.term_taxonomy_id";
+
+        DB::insert(DB::raw($sql));
     }
 
     
     private function convertCategories()
     {
-        $table_name = 'categories';
-        
-        $sql = "term_taxonomy_id as wp_id,
-	            name,
-	            slug,
-	            description,
-                parent";
-
         DB::statement('SET FOREIGN_KEY_CHECKS=0');
-        DB::table($table_name)->truncate();
+        DB::table('categories')->truncate();
         DB::statement('SET FOREIGN_KEY_CHECKS=1');
-        
-        DB::table('wp_term_taxonomy')
-            ->select(DB::raw($sql))
-            ->leftJoin('wp_terms', 'wp_terms.term_id', '=', 'wp_term_taxonomy.term_id')
-            ->where('wp_term_taxonomy.taxonomy', 'category')
-            ->chunk(100, function($categories) use ($table_name) {
-                DB::table($table_name)->insert($categories->map(function($category) {
-                    return (array)$category;
-                })->toArray());
-            });
+
+        $sql = "INSERT INTO categories (wp_id, name, slug, description, parent)
+            SELECT term_taxonomy_id as wp_id, name, slug, description, parent
+            FROM wp_term_taxonomy
+            LEFT JOIN wp_terms ON wp_terms.term_id = wp_term_taxonomy.term_id
+            WHERE wp_term_taxonomy.taxonomy = 'category'";
+
+        DB::insert(DB::raw($sql));
     }
 
     private function convertPostCategories()
     {
-        $table_name = 'category_post';
-
-        $sql = "posts.id as post_id,
-	        categories.id as category_id";
-        
         DB::statement('SET FOREIGN_KEY_CHECKS=0');
-        DB::table($table_name)->truncate();
+        DB::table('category_post')->truncate();
         DB::statement('SET FOREIGN_KEY_CHECKS=1');
 
-        DB::table('wp_term_relationships')
-            ->select(DB::raw($sql))
-            ->join('posts', 'posts.wp_id', '=', 'wp_term_relationships.object_id')
-            ->join('categories', 'categories.wp_id', '=', 'wp_term_relationships.term_taxonomy_id')
-            ->chunk(100, function($post_categories) use ($table_name) {
-                DB::table($table_name)->insert($post_categories->map(function($pc) {
-                    return (array)$pc;
-                })->toArray());
-            });
+        $sql = "INSERT INTO category_post (post_id, category_id)
+            SELECT posts.id as post_id, categories.id as category_id
+            FROM wp_term_relationships
+            JOIN posts ON posts.wp_id = wp_term_relationships.object_id
+            JOIN categories ON categories.wp_id = wp_term_relationships.term_taxonomy_id";
+
+        DB::insert(DB::raw($sql));
     }
 }
