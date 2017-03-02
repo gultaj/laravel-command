@@ -18,7 +18,7 @@ class CreateTagsTable extends Migration
             $table->integer('wp_id')->unsigned();
             $table->string('name');
             $table->string('slug');
-            $table->timestamps();
+            //$table->timestamps();
         });
 
         Schema::create('tag_post', function(Blueprint $table) {

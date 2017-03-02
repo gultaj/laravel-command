@@ -21,7 +21,7 @@ class CreateEventPlacesTable extends Migration
             $table->text('description');
             $table->string('address')->nullable();
             $table->string('phone')->nullable();
-            $table->timestamps();
+            //$table->timestamps();
         });
     }
 

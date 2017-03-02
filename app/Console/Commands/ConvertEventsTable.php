@@ -38,21 +38,19 @@ class ConvertEventsTable extends Command
      */
     public function handle()
     {
-        $this->info('Start convert event_types table');
+        $this->info("Events");
+
         $this->convertEventTypes();
-        $this->info('End convert event_types table');
+        $this->info("\tConverted event_types table");
 
-        $this->info('Start convert event_places table');
         $this->convertEventPlaces();
-        $this->info('End convert event_places table');
+        $this->info("\tConverted event_places table");
 
-        $this->info('Start convert events table');
         $this->convertEvents();
-        $this->info('End convert events table');
+        $this->info("\tConverted events table");
 
-        $this->info('Start update events table');
         $this->updateEvents();
-        $this->info('End update events table');
+        $this->info("\tUpdated events table");
     }
 
     private function convertEvents()

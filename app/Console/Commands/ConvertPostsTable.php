@@ -33,25 +33,22 @@ class ConvertPostsTable extends Command
 
     public function handle()
     {
-        $this->info('Start convert post table');
+        $this->info('Posts');
+
         $this->convertPosts();
-        $this->info('End convert post table');
+        $this->info("\tConverted posts table");
 
-        $this->info('Begin convertation tags table');
         $this->convertTags();
-        $this->info('Finished convertation tags table');
+        $this->info("\tConverted tags table");
 
-        $this->info('Begin convertation tag_post table');
         $this->convertPostTags();
-        $this->info('Finished convertation tag_post table');
+        $this->info("\tConverted tag_post table");
 
-        $this->info('Begin convertation categories table');
         $this->convertCategories();
-        $this->info('Finished convertation categories table');
+        $this->info("\tConverted categories table");
 
-        $this->info('Begin convertation post_categories table');
         $this->convertPostCategories();
-        $this->info('Finished convertation post_categories table');
+        $this->info("\tConverted post_categories table");
     }
 
     public function convertPosts()

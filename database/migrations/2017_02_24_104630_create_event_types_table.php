@@ -19,7 +19,7 @@ class CreateEventTypesTable extends Migration
             $table->string('name');
             $table->string('slug');
             $table->text('description');
-            $table->timestamps();
+            //$table->timestamps();
         });
     }
 

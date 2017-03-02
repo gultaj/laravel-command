@@ -20,7 +20,7 @@ class CreateCategoriesTable extends Migration
             $table->string('name');
             $table->string('slug');
             $table->text('description');
-            $table->timestamps();
+            //$table->timestamps();
         });
 
         Schema::create('category_post', function(Blueprint $table) {
