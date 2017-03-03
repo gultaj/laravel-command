@@ -37,8 +37,8 @@ class ConvertAllTables extends Command
      */
     public function handle()
     {
-        $this->call('convert:posts');
         $this->call('convert:users');
-
+        $this->call('convert:posts');
+        $this->call('convert:events');
     }
 }

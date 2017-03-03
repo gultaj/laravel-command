@@ -38,9 +38,10 @@ class ConvertUsersTable extends Command
      */
     public function handle()
     {
-        $this->info('Start convert users table');
+        $this->info('Users');
+        
         $this->convertUsers();
-        $this->info('End convert users table');
+        $this->info("\tConverted users table");
     }
 
     private function convertUsers()
@@ -49,19 +50,18 @@ class ConvertUsersTable extends Command
         DB::table('users')->truncate();
         DB::statement('SET FOREIGN_KEY_CHECKS=1');
 
-        $sql = "ID AS wp_id,
-            user_login AS name,
-            user_email AS email,
-            user_registered AS created_at,
-            user_registered AS updated_at";
+        $sql = "SELECT ID AS wp_id,
+                user_login AS name,
+                user_email AS email,
+                user_registered AS created_at,
+                user_registered AS updated_at
+            FROM wp_users";
 
-        DB::table('wp_users')
-            ->select(DB::raw($sql))
-            ->chunk(100, function($users) {
-                DB::table('users')->insert($users->map(function($user) {
-                    $user->password = bcrypt($user->name . '_' . \Carbon\Carbon::parse($user->created_at));
-                    return (array)$user;
-                })->toArray());
-        });
+        $users = DB::select(DB::raw($sql));
+
+        foreach ($users as $user) {
+            $user->password = bcrypt($user->name . '_' . \Carbon\Carbon::parse($user->created_at));
+            DB::table('users')->insert((array)$user);
+        }
     }
 }

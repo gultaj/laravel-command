@@ -22,6 +22,7 @@ class CreateEventsTable extends Migration
             $table->string('title');
             $table->date('startDate')->nullable();
             $table->date('endDate')->nullable();
+            $table->enum('status', ['public', 'private', 'draft', 'trash'])->default('public');
             $table->string('price')->nullable();
             $table->text('schedule')->nullable();
             $table->text('content');
