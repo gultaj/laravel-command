@@ -49,8 +49,9 @@ class ConvertEventsTable extends Command
         $this->convertEvents();
         $this->info("\tConverted events table");
 
-        //$this->updateEvents();
-        // $this->info("\tUpdated events table");
+        $this->updateEventsTable();
+        $this->info("\tUpdated events table");
+
     }
 
     private function convertEvents()
@@ -59,32 +60,13 @@ class ConvertEventsTable extends Command
         DB::table('events')->truncate();
         DB::statement('SET FOREIGN_KEY_CHECKS=1');
 
-        // $sql = "wp_posts.ID AS wp_id,
-        //     IFNULL(users.id, 1) AS user_id,
-        //     post_date AS created_at,
-        //     post_content AS content,
-        //     post_title AS title,
-        //     post_modified AS updated_at";
-
-        // DB::table('wp_posts')
-        //     ->select(DB::raw($sql))
-        //     ->leftJoin('users', 'wp_posts.post_author', '=',  'users.wp_id')
-        //     ->where('post_type', 'afisha')
-        //     ->chunk(100, function($events) {
-        //         DB::table('events')->insert($events->map(function($event) {
-        //             return (array)$event;
-        //         })->toArray());
-        // });
-
-        $sql = "INSERT INTO events (wp_id, user_id, event_type_id, event_place_id, title, content, startDate, endDate, status, created_at, updated_at)
+        $sql = "INSERT INTO events (wp_id, user_id, event_type_id, event_place_id, title, content, status, created_at, updated_at)
             SELECT wp_posts.ID AS wp_id,
             IFNULL(users.id, 1) AS user_id,
             IFNULL(types.event_type_id, 1) AS event_type_id,
             IFNULL(places.event_place_id, 1) AS event_place_id,
             post_title AS title,
             post_content AS content,
-            DATE(FROM_UNIXTIME(dates.startDate)) AS startDate,
-            DATE(FROM_UNIXTIME(dates.endDate)) AS endDate,
             CASE post_status
                 WHEN 'publish' THEN 'public'
                 WHEN 'pending' THEN 'public' 
@@ -95,15 +77,6 @@ class ConvertEventsTable extends Command
             post_modified AS updated_at
             FROM wp_posts
             LEFT JOIN users ON wp_posts.post_author = users.wp_id
-            LEFT JOIN (
-                SELECT 
-                    post_id,
-                    MAX(CASE WHEN meta_key = 'from_date' THEN meta_value END) AS startDate,
-                    MAX(CASE WHEN meta_key = 'to_date' THEN meta_value END) AS endDate
-                FROM wp_postmeta
-                WHERE (meta_key = 'from_date' OR meta_key = 'to_date')
-                GROUP BY post_id
-            ) AS dates ON dates.post_id = wp_posts.ID
             LEFT JOIN (
                 SELECT wp_posts.id as id, event_types.id as event_type_id
                 FROM wp_term_relationships
@@ -167,54 +140,44 @@ class ConvertEventsTable extends Command
         DB::insert(DB::raw($sql));
     }
 
-    private function updateEvents()
+    private function updateEventsTable()
     {
-        // $sql = "events.id as id,
-	    //     event_types.id as event_type_id";
+        $sql = "SELECT events.id as id, wp_id, 
+                DATE(FROM_UNIXTIME(metadata.startDate)) as startDate, 
+                DATE(FROM_UNIXTIME(metadata.endDate)) as endDate, 
+                metadata.meta as meta, 
+                wp_postmeta.meta_value as thumbnail
+            FROM events
+            LEFT JOIN (
+                SELECT post_id,
+                    MAX(CASE WHEN meta_key = '_thumbnail_id' THEN meta_value END) AS thumbnail_id,
+                    MAX(CASE WHEN meta_key = 'from_date' THEN meta_value END) AS startDate,
+                    MAX(CASE WHEN meta_key = 'to_date' THEN meta_value END) AS endDate,
+                    MAX(CASE WHEN meta_key = 'afisha-option' THEN meta_value END) AS meta
+                FROM wp_postmeta
+                WHERE (meta_key = '_thumbnail_id' OR meta_key = 'afisha-option' OR meta_key = 'from_date' OR meta_key = 'to_date')
+                GROUP BY post_id
+            ) AS metadata ON events.wp_id = metadata.post_id
+            LEFT JOIN wp_postmeta ON metadata.thumbnail_id = wp_postmeta.post_id AND wp_postmeta.meta_key = '_wp_attached_file'";
 
-        // DB::table('wp_term_relationships')
-        //     ->select(DB::raw($sql))
-        //     ->join('events', 'events.wp_id', '=', 'wp_term_relationships.object_id')
-        //     ->join('event_types', 'event_types.wp_id', '=', 'wp_term_relationships.term_taxonomy_id')
-        //     ->chunk(100, function($events) {
-        //         $events->each(function($event) {
-        //             DB::table('events')->where('id', $event->id)->update(['event_type_id' => $event->event_type_id]);
-        //         });
-        //     });
+        $events = DB::select(DB::raw($sql));
 
-        // $sql = "events.id as id,
-	    //     event_places.id as event_place_id";
-
-        // DB::table('wp_term_relationships')
-        //     ->select(DB::raw($sql))
-        //     ->join('events', 'events.wp_id', '=', 'wp_term_relationships.object_id')
-        //     ->join('event_places', 'event_places.wp_id', '=', 'wp_term_relationships.term_taxonomy_id')
-        //     ->chunk(100, function($events) {
-        //         $events->each(function($event) {
-        //             DB::table('events')->where('id', $event->id)->update(['event_place_id' => $event->event_place_id]);
-        //         });
-        //     });
+        foreach ($events as $event) {
+            if (!is_null($event->meta)) {
+                $meta = unserialize($event->meta);
+                $event->meta = null;
+                if (isset($meta['price']))
+                    $event->price = $meta['price'];
+                if (isset($meta['kino_data'])) {
+                    $kino = $meta['kino_data'];
+                    $kino['trailer'] = $meta['trailer'];
+                    $event->meta = json_encode($kino, JSON_UNESCAPED_UNICODE);
+                }      
+                if (isset($meta['sessions'])) {
+                    $event->schedule = json_encode($meta['sessions'], JSON_UNESCAPED_UNICODE); 
+                }
+            }
+            DB::table('events')->where('id', $event->id)->update((array)$event);
+        }
     }
-
-    // private function convertEventTypes()
-    // {
-    //     $table_name = 'category_post';
-
-    //     $sql = "posts.id as post_id,
-	//         categories.id as category_id";
-        
-    //     DB::statement('SET FOREIGN_KEY_CHECKS=0');
-    //     DB::table($table_name)->truncate();
-    //     DB::statement('SET FOREIGN_KEY_CHECKS=1');
-
-    //     DB::table('wp_term_relationships')
-    //         ->select(DB::raw($sql))
-    //         ->join('posts', 'posts.wp_id', '=', 'wp_term_relationships.object_id')
-    //         ->join('categories', 'categories.wp_id', '=', 'wp_term_relationships.term_taxonomy_id')
-    //         ->chunk(100, function($post_categories) use ($table_name) {
-    //             DB::table($table_name)->insert($post_categories->map(function($pc) {
-    //                 return (array)$pc;
-    //             })->toArray());
-    //         });
-    // }
 }

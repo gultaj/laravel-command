@@ -26,6 +26,7 @@ class CreateEventsTable extends Migration
             $table->string('price')->nullable();
             $table->text('schedule')->nullable();
             $table->text('content');
+            $table->text('thumbnail')->nullable();
             $table->text('meta')->nullable();
             $table->timestamps();
         });
